@@ -12,15 +12,21 @@ const FiveHourCycle = 5 * time.Hour
 type PlaybackService struct {
 	PlaybackRepository *repositories.PlaybackRepository
 	PlaylistRepository *repositories.PlaylistRepository
+	MediaRepository    *repositories.MediaRepository
+	SyncRepository     *repositories.SyncRepository
 }
 
 func NewPlaybackService(
 	playbackRepository *repositories.PlaybackRepository,
 	playlistRepository *repositories.PlaylistRepository,
+	mediaRepository *repositories.MediaRepository,
+	syncRepository *repositories.SyncRepository,
 ) *PlaybackService {
 	return &PlaybackService{
 		PlaybackRepository: playbackRepository,
 		PlaylistRepository: playlistRepository,
+		MediaRepository:    mediaRepository,
+		SyncRepository:     syncRepository,
 	}
 }
 
@@ -73,6 +79,7 @@ func max(a, b int) int {
 }
 
 func (s *PlaybackService) GetCurrentMedia(windowID string) (map[string]interface{}, error) {
+
 	_, startedAt, status, err :=
 		s.PlaybackRepository.GetState(windowID)
 
@@ -84,14 +91,20 @@ func (s *PlaybackService) GetCurrentMedia(windowID string) (map[string]interface
 		return nil, fmt.Errorf("playback has not been started")
 	}
 
+	// If the window is already stopped, do not play anything.
+	if status != "RUNNING" {
+		return map[string]interface{}{
+			"window_id": windowID,
+			"status":    "STOPPED",
+		}, nil
+	}
+
 	elapsed := time.Since(*startedAt)
 
-	// Stop after 5 hours
+	// Stop after the 5-hour playback cycle.
 	if elapsed >= FiveHourCycle {
 
-		if status == "RUNNING" {
-			_ = s.PlaybackRepository.Stop(windowID)
-		}
+		_ = s.PlaybackRepository.Stop(windowID)
 
 		return map[string]interface{}{
 			"window_id": windowID,
@@ -99,6 +112,53 @@ func (s *PlaybackService) GetCurrentMedia(windowID string) (map[string]interface
 			"message":   "5-hour playback cycle completed",
 		}, nil
 	}
+
+	// --------------------------------------------------
+	// Check for active synchronization
+	// --------------------------------------------------
+
+	_, syncMediaID, syncStartedAt, syncDuration, syncErr :=
+		s.SyncRepository.GetLatest()
+
+	if syncErr == nil {
+
+		syncElapsed := time.Since(syncStartedAt)
+
+		if syncElapsed < time.Duration(syncDuration)*time.Second {
+
+			// Sync is active.
+			// Retrieve the selected media directly from
+			// the media table. It does not need to belong
+			// to this window's normal playlist.
+
+			syncMedia, err :=
+				s.MediaRepository.GetByID(syncMediaID)
+
+			if err != nil {
+				return nil, err
+			}
+
+			return map[string]interface{}{
+				"window_id":        windowID,
+				"status":           "SYNCING",
+				"media_id":         syncMedia["id"],
+				"title":            syncMedia["title"],
+				"media_type":       syncMedia["media_type"],
+				"url":              syncMedia["url"],
+				"duration_seconds": syncMedia["duration_seconds"],
+
+				"sync_elapsed_seconds": int(syncElapsed.Seconds()),
+				"sync_remaining_seconds": max(
+					syncDuration-int(syncElapsed.Seconds()),
+					0,
+				),
+			}, nil
+		}
+	}
+
+	// --------------------------------------------------
+	// Normal playlist playback
+	// --------------------------------------------------
 
 	playlist, err :=
 		s.PlaylistRepository.GetPlaylistWithDurations(windowID)

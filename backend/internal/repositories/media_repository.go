@@ -100,3 +100,44 @@ func (r *MediaRepository) GetAll() ([]map[string]interface{}, error) {
 
 	return mediaList, nil
 }
+
+func (r *MediaRepository) GetByID(mediaID string) (map[string]interface{}, error) {
+	var (
+		id              string
+		title           string
+		mediaType       string
+		url             string
+		durationSeconds int
+		createdAt       interface{}
+		updatedAt       interface{}
+	)
+
+	err := r.DB.QueryRow(`
+		SELECT id, title, media_type, url, duration_seconds,
+		       created_at, updated_at
+		FROM media
+		WHERE id = $1
+	`, mediaID).Scan(
+		&id,
+		&title,
+		&mediaType,
+		&url,
+		&durationSeconds,
+		&createdAt,
+		&updatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get media: %w", err)
+	}
+
+	return map[string]interface{}{
+		"id":               id,
+		"title":            title,
+		"media_type":       mediaType,
+		"url":              url,
+		"duration_seconds": durationSeconds,
+		"created_at":       createdAt,
+		"updated_at":       updatedAt,
+	}, nil
+}

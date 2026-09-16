@@ -27,17 +27,21 @@ func main() {
 	mediaRepository := repositories.NewMediaRepository(db)
 	playlistRepository := repositories.NewPlaylistRepository(db)
 	playbackRepository := repositories.NewPlaybackRepository(db)
+	syncRepository := repositories.NewSyncRepository(db)
 
 	//services
 	windowService := services.NewWindowService(windowRepository)
 	mediaService := services.NewMediaService(mediaRepository)
 
 	playlistService := services.NewPlaylistService(playlistRepository)
-
 	playbackService := services.NewPlaybackService(
 		playbackRepository,
 		playlistRepository,
+		mediaRepository,
+		syncRepository,
 	)
+
+	syncService := services.NewSyncService(syncRepository)
 
 	//handlers
 	windowHandler := handlers.NewWindowHandler(windowService)
@@ -46,6 +50,8 @@ func main() {
 	playlistHandler := handlers.NewPlaylistHandler(playlistService)
 
 	playbackHandler := handlers.NewPlaybackHandler(playbackService)
+
+	syncHandler := handlers.NewSyncHandler(syncService)
 
 	http.HandleFunc("/health", handlers.HealthHandler)
 
@@ -80,7 +86,22 @@ func main() {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})
 
-	// Window-specific routes
+	//sync route
+	http.HandleFunc("/sync", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			syncHandler.Start(w, r)
+			return
+		}
+
+		if r.Method == http.MethodGet {
+			syncHandler.GetStatus(w, r)
+			return
+		}
+
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	})
+
+	// Window specific routes
 	http.HandleFunc("/windows/", func(w http.ResponseWriter, r *http.Request) {
 
 		path := r.URL.Path
@@ -95,6 +116,16 @@ func main() {
 
 			if r.Method == http.MethodGet {
 				playlistHandler.GetPlaylist(w, r)
+				return
+			}
+
+			if r.Method == http.MethodDelete {
+				playlistHandler.DeleteItem(w, r)
+				return
+			}
+
+			if r.Method == http.MethodPut {
+				playlistHandler.UpdatePosition(w, r)
 				return
 			}
 		}

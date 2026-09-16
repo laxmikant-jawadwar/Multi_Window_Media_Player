@@ -97,3 +97,94 @@ func (h *PlaylistHandler) GetPlaylist(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(playlist)
 }
+
+func (h *PlaylistHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodDelete {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	parts := strings.Split(r.URL.Path, "/")
+
+	if len(parts) < 5 || parts[2] == "" || parts[4] == "" {
+		http.Error(w, "window id and playlist item id required", http.StatusBadRequest)
+		return
+	}
+
+	windowID := parts[2]
+	playlistItemID := parts[4]
+
+	err := h.Service.Delete(windowID, playlistItemID)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":   "playlist item deleted successfully",
+		"id":        playlistItemID,
+		"window_id": windowID,
+	})
+}
+
+func (h *PlaylistHandler) UpdatePosition(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	parts := strings.Split(r.URL.Path, "/")
+
+	if len(parts) < 5 || parts[2] == "" || parts[4] == "" {
+		http.Error(w, "window id and playlist item id required", http.StatusBadRequest)
+		return
+	}
+
+	windowID := parts[2]
+	playlistItemID := parts[4]
+
+	var request struct {
+		Position int `json:"position"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if request.Position <= 0 {
+		http.Error(w, "valid position required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.Service.UpdatePosition(windowID, playlistItemID, request.Position)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":   "playlist item position updated successfully",
+		"id":        playlistItemID,
+		"window_id": windowID,
+		"position":  request.Position,
+	})
+}

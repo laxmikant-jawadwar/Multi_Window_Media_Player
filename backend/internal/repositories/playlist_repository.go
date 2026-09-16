@@ -174,3 +174,128 @@ func (r *PlaylistRepository) GetPlaylistWithDurations(
 
 	return playlist, nil
 }
+
+func (r *PlaylistRepository) Delete(
+	windowID string,
+	playlistItemID string,
+) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var position int
+	err = tx.QueryRow(`
+		SELECT position FROM playlist_items
+		WHERE id = $1 AND window_id = $2
+	`, playlistItemID, windowID).Scan(&position)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("playlist item not found")
+		}
+		return fmt.Errorf("failed to find playlist item: %w", err)
+	}
+
+	_, err = tx.Exec(`
+		DELETE FROM playlist_items
+		WHERE id = $1 AND window_id = $2
+	`, playlistItemID, windowID)
+	if err != nil {
+		return fmt.Errorf("failed to delete playlist item: %w", err)
+	}
+
+	_, err = tx.Exec(`
+		UPDATE playlist_items
+		SET position = position - 1
+		WHERE window_id = $1 AND position > $2
+	`, windowID, position)
+	if err != nil {
+		return fmt.Errorf("failed to reorder playlist positions: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (r *PlaylistRepository) UpdatePosition(
+	windowID string,
+	playlistItemID string,
+	newPosition int,
+) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var oldPosition int
+	err = tx.QueryRow(`
+		SELECT position FROM playlist_items
+		WHERE id = $1 AND window_id = $2
+	`, playlistItemID, windowID).Scan(&oldPosition)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("playlist item not found")
+		}
+		return fmt.Errorf("failed to find playlist item: %w", err)
+	}
+
+	if oldPosition == newPosition {
+		return nil
+	}
+
+	var count int
+	err = tx.QueryRow(`
+		SELECT COUNT(*) FROM playlist_items
+		WHERE window_id = $1
+	`, windowID).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to count playlist items: %w", err)
+	}
+
+	if newPosition > count {
+		newPosition = count
+	}
+
+	// Step 1: Move target item to temporary position -1 to prevent UNIQUE(window_id, position) violation
+	_, err = tx.Exec(`
+		UPDATE playlist_items
+		SET position = -1
+		WHERE id = $1 AND window_id = $2
+	`, playlistItemID, windowID)
+	if err != nil {
+		return fmt.Errorf("failed to set temporary position: %w", err)
+	}
+
+	// Step 2: Shift positions of other items in the range
+	if newPosition < oldPosition {
+		_, err = tx.Exec(`
+			UPDATE playlist_items
+			SET position = position + 1
+			WHERE window_id = $1 AND position >= $2 AND position < $3
+		`, windowID, newPosition, oldPosition)
+	} else {
+		_, err = tx.Exec(`
+			UPDATE playlist_items
+			SET position = position - 1
+			WHERE window_id = $1 AND position > $2 AND position <= $3
+		`, windowID, oldPosition, newPosition)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to shift playlist positions: %w", err)
+	}
+
+	// Step 3: Move target item to final newPosition
+	_, err = tx.Exec(`
+		UPDATE playlist_items
+		SET position = $1
+		WHERE id = $2 AND window_id = $3
+	`, newPosition, playlistItemID, windowID)
+	if err != nil {
+		return fmt.Errorf("failed to set final position: %w", err)
+	}
+
+	return tx.Commit()
+}
