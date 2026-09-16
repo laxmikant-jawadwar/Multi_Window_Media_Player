@@ -48,7 +48,21 @@ func main() {
 	}
 	defer tx.Rollback()
 
-	//Seed Windows, taken 3 windows
+	log.Println("Resetting existing demo tables...")
+	tablesToClear := []string{
+		"sync_sessions",
+		"playback_states",
+		"playlist_items",
+		"media",
+		"windows",
+	}
+	for _, table := range tablesToClear {
+		if _, err := tx.Exec("DELETE FROM " + table); err != nil {
+			log.Fatalf("Failed to clear table %s: %v", table, err)
+		}
+	}
+
+	// Seed Windows (3 Windows)
 	windows := []WindowSeed{
 		{ID: "a0000000-0000-0000-0000-000000000001", Name: "Window 1"},
 		{ID: "a0000000-0000-0000-0000-000000000002", Name: "Window 2"},
@@ -67,42 +81,42 @@ func main() {
 	}
 	log.Printf("Seeded %d windows", len(windows))
 
-	//Seed Media Records (5 Samsung Demo Media)
+	// Seed Media Records (5 Official Samsung Demo Media)
 	mediaList := []MediaSeed{
 		{
 			ID:              "b0000000-0000-0000-0000-000000000001",
-			Title:           "Galaxy S26 Product Video",
-			MediaType:       "video",
-			URL:             "https://example.com/media/galaxy-s26-video.mp4",
-			DurationSeconds: 30,
+			Title:           "Galaxy S26 Product",
+			MediaType:       "image",
+			URL:             "https://images.samsung.com/is/image/samsung/assets/in/s2602/specs/Galaxy-S26_Cobalt-Violet_163x346.jpg?$163_346_PNG$",
+			DurationSeconds: 10,
 		},
 		{
 			ID:              "b0000000-0000-0000-0000-000000000002",
-			Title:           "Galaxy S26 Product Image",
+			Title:           "Galaxy Buds4 Product",
 			MediaType:       "image",
-			URL:             "https://example.com/media/galaxy-s26-image.jpg",
+			URL:             "https://images.samsung.com/is/image/samsung/p6pim/in/s2602/gallery/in-galaxy-buds4-r540-sm-r540nzkainu-thumb-550979431?$104_104_PNG$",
 			DurationSeconds: 10,
 		},
 		{
 			ID:              "b0000000-0000-0000-0000-000000000003",
-			Title:           "Galaxy Buds Product Video",
-			MediaType:       "video",
-			URL:             "https://example.com/media/galaxy-buds-video.mp4",
-			DurationSeconds: 25,
-		},
-		{
-			ID:              "b0000000-0000-0000-0000-000000000004",
-			Title:           "Galaxy Watch Product Image",
+			Title:           "Galaxy Watch8 Product",
 			MediaType:       "image",
-			URL:             "https://example.com/media/galaxy-watch-image.jpg",
+			URL:             "https://images.samsung.com/in/galaxy-watch8/feature/galaxy-watch8-design-colors-graphite-perspective.jpg?imbypass=true",
 			DurationSeconds: 10,
 		},
 		{
-			ID:              "b0000000-0000-0000-0000-000000000005",
-			Title:           "Samsung Ecosystem Video",
+			ID:              "b0000000-0000-0000-0000-000000000004",
+			Title:           "Galaxy Buds4 Official Video",
 			MediaType:       "video",
-			URL:             "https://example.com/media/samsung-ecosystem-video.mp4",
-			DurationSeconds: 35,
+			URL:             "https://www.youtube.com/watch?v=Sxmxb4jmxlA",
+			DurationSeconds: 30,
+		},
+		{
+			ID:              "b0000000-0000-0000-0000-000000000005",
+			Title:           "Galaxy Watch8 Official Video",
+			MediaType:       "video",
+			URL:             "https://www.youtube.com/watch?v=AJ0xX7QAy8k",
+			DurationSeconds: 30,
 		},
 	}
 
@@ -122,32 +136,32 @@ func main() {
 	}
 	log.Printf("Seeded %d media records", len(mediaList))
 
-	// Seed Playlist Assignments
+	// Seed Playlist Assignments (3 per window)
 	w1 := "a0000000-0000-0000-0000-000000000001"
 	w2 := "a0000000-0000-0000-0000-000000000002"
 	w3 := "a0000000-0000-0000-0000-000000000003"
 
-	m1 := "b0000000-0000-0000-0000-000000000001"
-	m2 := "b0000000-0000-0000-0000-000000000002"
-	m3 := "b0000000-0000-0000-0000-000000000003"
-	m4 := "b0000000-0000-0000-0000-000000000004"
-	m5 := "b0000000-0000-0000-0000-000000000005"
+	m1 := "b0000000-0000-0000-0000-000000000001" // Galaxy S26 Product Image
+	m2 := "b0000000-0000-0000-0000-000000000002" // Galaxy Buds4 Product Image
+	m3 := "b0000000-0000-0000-0000-000000000003" // Galaxy Watch8 Product Image
+	m4 := "b0000000-0000-0000-0000-000000000004" // Galaxy Buds4 Official Video
+	m5 := "b0000000-0000-0000-0000-000000000005" // Galaxy Watch8 Official Video
 
 	playlistItems := []PlaylistItemSeed{
-		// Window 1
+		// Window 1:
 		{ID: "c0000000-0000-0000-0001-000000000001", WindowID: w1, MediaID: m1, Position: 1},
 		{ID: "c0000000-0000-0000-0001-000000000002", WindowID: w1, MediaID: m2, Position: 2},
-		{ID: "c0000000-0000-0000-0001-000000000003", WindowID: w1, MediaID: m5, Position: 3},
+		{ID: "c0000000-0000-0000-0001-000000000003", WindowID: w1, MediaID: m4, Position: 3},
 
-		// Window 2
+		// Window 2:
 		{ID: "c0000000-0000-0000-0002-000000000001", WindowID: w2, MediaID: m3, Position: 1},
-		{ID: "c0000000-0000-0000-0002-000000000002", WindowID: w2, MediaID: m4, Position: 2},
+		{ID: "c0000000-0000-0000-0002-000000000002", WindowID: w2, MediaID: m5, Position: 2},
 		{ID: "c0000000-0000-0000-0002-000000000003", WindowID: w2, MediaID: m1, Position: 3},
 
-		// Window 3
-		{ID: "c0000000-0000-0000-0003-000000000001", WindowID: w3, MediaID: m4, Position: 1},
-		{ID: "c0000000-0000-0000-0003-000000000002", WindowID: w3, MediaID: m5, Position: 2},
-		{ID: "c0000000-0000-0000-0003-000000000003", WindowID: w3, MediaID: m3, Position: 3},
+		// Window 3:
+		{ID: "c0000000-0000-0000-0003-000000000001", WindowID: w3, MediaID: m2, Position: 1},
+		{ID: "c0000000-0000-0000-0003-000000000002", WindowID: w3, MediaID: m1, Position: 2},
+		{ID: "c0000000-0000-0000-0003-000000000003", WindowID: w3, MediaID: m5, Position: 3},
 	}
 
 	for _, pi := range playlistItems {
