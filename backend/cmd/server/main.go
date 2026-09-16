@@ -139,6 +139,15 @@ func main() {
 			}
 		}
 
+		// Playback current
+		if strings.HasSuffix(path, "/playback/current") {
+
+			if r.Method == http.MethodGet {
+				playbackHandler.GetCurrentMedia(w, r)
+				return
+			}
+		}
+
 		// Playback state
 		if strings.HasSuffix(path, "/playback") {
 
@@ -153,7 +162,24 @@ func main() {
 
 	log.Printf("Server starting on port %s", cfg.Port)
 
-	if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
+	handler := enableCORS(http.DefaultServeMux)
+
+	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

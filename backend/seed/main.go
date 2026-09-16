@@ -48,7 +48,7 @@ func main() {
 	}
 	defer tx.Rollback()
 
-	// 1. Seed Windows (3 Windows)
+	//Seed Windows, taken 3 windows
 	windows := []WindowSeed{
 		{ID: "a0000000-0000-0000-0000-000000000001", Name: "Window 1"},
 		{ID: "a0000000-0000-0000-0000-000000000002", Name: "Window 2"},
@@ -67,7 +67,7 @@ func main() {
 	}
 	log.Printf("Seeded %d windows", len(windows))
 
-	// 2. Seed Media Records (5 Samsung Demo Media)
+	//Seed Media Records (5 Samsung Demo Media)
 	mediaList := []MediaSeed{
 		{
 			ID:              "b0000000-0000-0000-0000-000000000001",
@@ -122,7 +122,7 @@ func main() {
 	}
 	log.Printf("Seeded %d media records", len(mediaList))
 
-	// 3. Seed Playlist Assignments
+	// Seed Playlist Assignments
 	w1 := "a0000000-0000-0000-0000-000000000001"
 	w2 := "a0000000-0000-0000-0000-000000000002"
 	w3 := "a0000000-0000-0000-0000-000000000003"
