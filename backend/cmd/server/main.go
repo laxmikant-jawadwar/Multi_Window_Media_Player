@@ -53,6 +53,7 @@ func main() {
 
 	syncHandler := handlers.NewSyncHandler(syncService)
 
+	http.HandleFunc("/", handlers.WelcomeHandler)
 	http.HandleFunc("/health", handlers.HealthHandler)
 
 	http.HandleFunc("/windows", func(w http.ResponseWriter, r *http.Request) {
