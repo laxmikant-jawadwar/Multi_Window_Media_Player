@@ -52,7 +52,11 @@ export function WindowCard({ windowItem, mediaList }) {
     }
   };
 
-  const status = currentMedia?.status || playbackState?.status || 'STOPPED / NOT STARTED';
+  const status = currentMedia?.status || playbackState?.status || 'STOPPED';
+  const isStopped = status === 'STOPPED';
+  const hasStarted = Boolean(playbackState?.cycle_started_at || currentMedia?.cycle_started_at);
+  const isCycleCompleted = isStopped && hasStarted && (currentMedia?.message === '5-hour playback cycle completed' || (playbackState?.elapsed_seconds != null && playbackState.elapsed_seconds >= 18000));
+  const cycleCompletedMessage = isCycleCompleted ? '5-hour playback cycle completed' : null;
 
   return (
     <div className="window-card">
@@ -70,18 +74,37 @@ export function WindowCard({ windowItem, mediaList }) {
         {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
 
         <div style={{ background: '#f9f9f9', padding: '10px', borderRadius: '4px', marginBottom: '10px' }}>
-          <div><strong>Status:</strong> {status}</div>
-          {currentMedia && currentMedia.title ? (
+          <div>
+            <strong>Status:</strong> {status}
+            {isStopped && cycleCompletedMessage && (
+              <span style={{ marginLeft: '8px', color: '#666', fontSize: '0.9em' }}>
+                ({cycleCompletedMessage})
+              </span>
+            )}
+          </div>
+          {currentMedia && currentMedia.title && !isStopped ? (
             <>
               <div style={{ wordBreak: 'break-word' }}><strong>Current Media:</strong> {currentMedia.title} ({currentMedia.media_type})</div>
               <div><strong>Elapsed:</strong> {currentMedia.elapsed_seconds ?? playbackState?.elapsed_seconds ?? 0}s</div>
               <div><strong>Remaining:</strong> {currentMedia.remaining_seconds ?? playbackState?.remaining_seconds ?? 0}s</div>
               <div style={{ marginTop: '8px' }}>
-                {renderMediaDisplay(currentMedia)}
+                <MediaDisplay media={currentMedia} />
               </div>
             </>
+          ) : playlist.length === 0 && !hasStarted ? (
+            <div style={{ marginTop: '8px' }}>
+              <div className="media-display" style={{ flexDirection: 'column', color: '#666', textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1em', marginBottom: '4px' }}>Playlist is empty</div>
+                <div>Add media to this window to start playback.</div>
+              </div>
+            </div>
           ) : (
-            <div style={{ color: '#666', marginTop: '5px' }}>Playback not active or no media playing.</div>
+            <div style={{ marginTop: '8px' }}>
+              <div className="media-display" style={{ flexDirection: 'column', color: '#666', textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1em', marginBottom: '4px' }}>Playback stopped</div>
+                <div>{cycleCompletedMessage || 'Click "Start Playback" to begin.'}</div>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -102,35 +125,72 @@ function getYouTubeEmbedUrl(url) {
   return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1` : null;
 }
 
-function renderMediaDisplay(media) {
-  if (!media.url) return null;
+function MediaDisplay({ media }) {
+  const [hasError, setHasError] = useState(false);
 
-  const ytEmbedUrl = getYouTubeEmbedUrl(media.url);
-  if (ytEmbedUrl) {
+  useEffect(() => {
+    setHasError(false);
+  }, [media?.media_id, media?.url, media?.title]);
+
+  if (!media) return null;
+
+  if (media.media_type === 'blank') {
     return (
       <div className="media-display">
-        <iframe
-          src={ytEmbedUrl}
-          title={media.title}
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        />
+        <span style={{ color: '#888', fontStyle: 'italic' }}>Blank</span>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="media-display">
+        <span style={{ color: '#888' }}>Media unavailable</span>
       </div>
     );
   }
 
   if (media.media_type === 'image') {
+    if (!media.url) {
+      return (
+        <div className="media-display">
+          <span style={{ color: '#888' }}>Media unavailable</span>
+        </div>
+      );
+    }
     return (
       <div className="media-display">
         <img
           src={media.url}
-          alt={media.title}
+          alt={media.title || 'Media'}
+          onError={() => setHasError(true)}
         />
       </div>
     );
   }
 
   if (media.media_type === 'video') {
+    if (!media.url) {
+      return (
+        <div className="media-display">
+          <span style={{ color: '#888' }}>Media unavailable</span>
+        </div>
+      );
+    }
+    const ytEmbedUrl = getYouTubeEmbedUrl(media.url);
+    if (ytEmbedUrl) {
+      return (
+        <div className="media-display">
+          <iframe
+            src={ytEmbedUrl}
+            title={media.title || 'Video'}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            onError={() => setHasError(true)}
+          />
+        </div>
+      );
+    }
     return (
       <div className="media-display">
         <video
@@ -138,6 +198,7 @@ function renderMediaDisplay(media) {
           controls
           autoPlay
           muted
+          onError={() => setHasError(true)}
         >
           Your browser does not support video playback.
         </video>
@@ -147,7 +208,7 @@ function renderMediaDisplay(media) {
 
   return (
     <div className="media-display">
-      <code>{media.url}</code>
+      <span style={{ color: '#888' }}>Unsupported media type</span>
     </div>
   );
 }

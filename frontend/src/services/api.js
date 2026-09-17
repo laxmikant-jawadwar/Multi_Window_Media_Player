@@ -36,6 +36,16 @@ export const api = {
 
   // Media
   getMediaList: () => request('/media'),
+  createMedia: (title, mediaType, url, durationSeconds) =>
+    request('/media', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        media_type: mediaType,
+        url: mediaType === 'blank' ? '' : url,
+        duration_seconds: Number(durationSeconds),
+      }),
+    }),
 
   // Playlist
   getPlaylist: (windowID) => request(`/windows/${windowID}/playlist`),

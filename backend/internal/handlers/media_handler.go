@@ -35,7 +35,7 @@ func (h *MediaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.Title == "" || request.MediaType == "" || request.URL == "" {
+	if request.Title == "" || request.MediaType == "" || (request.MediaType != "blank" && request.URL == "") {
 		http.Error(w, "title, media_type and url are required", http.StatusBadRequest)
 		return
 	}
