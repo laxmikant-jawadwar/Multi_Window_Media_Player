@@ -58,6 +58,9 @@ func (r *PlaybackRepository) GetState(windowID string) (
 	`, windowID).Scan(&startedAt, &status, &itemID)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil, "STOPPED", nil
+		}
 		return "", nil, "", fmt.Errorf("failed to get playback state: %w", err)
 	}
 

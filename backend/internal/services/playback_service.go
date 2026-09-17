@@ -48,7 +48,13 @@ func (s *PlaybackService) GetState(windowID string) (map[string]interface{}, err
 	}
 
 	if startedAt == nil {
-		return nil, fmt.Errorf("playback has not been started")
+		return map[string]interface{}{
+			"window_id":        windowID,
+			"status":           "STOPPED",
+			"current_item_id":  "",
+			"elapsed_seconds":  0,
+			"remaining_seconds": int(FiveHourCycle.Seconds()),
+		}, nil
 	}
 
 	elapsed := time.Since(*startedAt)
@@ -88,7 +94,10 @@ func (s *PlaybackService) GetCurrentMedia(windowID string) (map[string]interface
 	}
 
 	if startedAt == nil {
-		return nil, fmt.Errorf("playback has not been started")
+		return map[string]interface{}{
+			"window_id": windowID,
+			"status":    "STOPPED",
+		}, nil
 	}
 
 	// If the window is already stopped, do not play anything.
